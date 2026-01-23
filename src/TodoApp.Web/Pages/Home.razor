@@ -1,0 +1,200 @@
+@page "/"
+@using TodoApp.Domain.Models
+@using TodoApp.Web.Models.Todo
+@using TodoApp.Web.Interfaces
+
+<div class="todo-app">
+    <!-- Statistics Panel -->
+    @if (statistics != null)
+    {
+        <div class="stats-panel">
+            <div class="stat-card">
+                <span class="stat-number">@statistics.TotalCount</span>
+                <span class="stat-label">Total</span>
+            </div>
+            <div class="stat-card pending">
+                <span class="stat-number">@statistics.PendingCount</span>
+                <span class="stat-label">Pending</span>
+            </div>
+            <div class="stat-card completed">
+                <span class="stat-number">@statistics.CompletedCount</span>
+                <span class="stat-label">Completed</span>
+            </div>
+            <div class="stat-card overdue">
+                <span class="stat-number">@statistics.OverdueCount</span>
+                <span class="stat-label">Overdue</span>
+            </div>
+        </div>
+    }
+
+    <!-- Add Todo Form -->
+    <div class="add-todo-form">
+        <h2>Add New Todo</h2>
+        <div class="form-row">
+            <input type="text" 
+                   @bind="newTodo.Title" 
+                   @bind:event="oninput"
+                   placeholder="What needs to be done?" 
+                   class="title-input" />
+        </div>
+        <div class="form-row">
+            <input type="text" 
+                   @bind="newTodo.Description" 
+                   placeholder="Description (optional)" 
+                   class="description-input" />
+        </div>
+        <div class="form-row inline">
+            <div class="form-group">
+                <label>Priority</label>
+                <select @bind="newTodo.Priority">
+                    <option value="@Priority.Low">Low</option>
+                    <option value="@Priority.Medium">Medium</option>
+                    <option value="@Priority.High">High</option>
+                    <option value="@Priority.Critical">Critical</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Due Date & Time</label>
+                <input type="datetime-local" @bind="dueDateInput" />
+            </div>
+            <button @onclick="AddTodo" disabled="@(string.IsNullOrWhiteSpace(newTodo.Title) || isLoading)" class="add-btn">
+                @if (isLoading)
+                {
+                    <span>Adding...</span>
+                }
+                else
+                {
+                    <span>+ Add Todo</span>
+                }
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div class="filter-tabs">
+        <button class="@(currentFilter == Filter.All ? "active" : "")" @onclick="() => SetFilter(Filter.All)">
+            All (@todos.Count)
+        </button>
+        <button class="@(currentFilter == Filter.Pending ? "active" : "")" @onclick="() => SetFilter(Filter.Pending)">
+            Pending (@todos.Count(t => !t.IsCompleted))
+        </button>
+        <button class="@(currentFilter == Filter.Completed ? "active" : "")" @onclick="() => SetFilter(Filter.Completed)">
+            Completed (@todos.Count(t => t.IsCompleted))
+        </button>
+    </div>
+
+    <!-- Todo List -->
+    @if (isInitializing)
+    {
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading todos...</p>
+        </div>
+    }
+    else if (!filteredTodos.Any())
+    {
+        <div class="empty-state">
+            <p>@GetEmptyMessage()</p>
+        </div>
+    }
+    else
+    {
+        <ul class="todo-list">
+            @foreach (var todo in filteredTodos)
+            {
+                <li class="todo-item @(todo.IsCompleted ? "completed" : "") @(todo.IsOverdue ? "overdue" : "") priority-@todo.Priority.ToString().ToLower()">
+                    @if (editingTodoId == todo.Id)
+                    {
+                        <!-- Edit Mode -->
+                        <div class="todo-edit-form">
+                            <div class="form-row">
+                                <input type="text"
+                                       @bind="editModel.Title"
+                                       placeholder="Title"
+                                       class="title-input" />
+                            </div>
+                            <div class="form-row">
+                                <input type="text"
+                                       @bind="editModel.Description"
+                                       placeholder="Description (optional)"
+                                       class="description-input" />
+                            </div>
+                            <div class="form-row inline">
+                                <div class="form-group">
+                                    <label>Priority</label>
+                                    <select @bind="editModel.Priority">
+                                        <option value="@Priority.Low">Low</option>
+                                        <option value="@Priority.Medium">Medium</option>
+                                        <option value="@Priority.High">High</option>
+                                        <option value="@Priority.Critical">Critical</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Due Date & Time</label>
+                                    <input type="datetime-local" @bind="editDueDateInput" />
+                                </div>
+                                <div class="edit-actions">
+                                    <button @onclick="SaveEdit" class="save-btn" disabled="@string.IsNullOrWhiteSpace(editModel.Title)">Save</button>
+                                    <button @onclick="CancelEdit" class="cancel-btn">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <!-- View Mode -->
+                        <div class="todo-checkbox">
+                            <input type="checkbox"
+                                   checked="@todo.IsCompleted"
+                                   @onchange="() => ToggleComplete(todo.Id)" />
+                        </div>
+                        <div class="todo-content">
+                            <div class="todo-header">
+                                <span class="todo-title">@todo.Title</span>
+                                <span class="priority-badge @todo.Priority.ToString().ToLower()">@todo.Priority</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(todo.Description))
+                            {
+                                <p class="todo-description">@todo.Description</p>
+                            }
+                            <div class="todo-meta">
+                                <span class="created-date">Created: @todo.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                @if (todo.DueDate.HasValue)
+                                {
+                                    <span class="due-date @(todo.IsOverdue ? "overdue" : "")">
+                                        Due: @todo.DueDate.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                                        @if (todo.IsOverdue)
+                                        {
+                                            <span class="overdue-badge">OVERDUE</span>
+                                        }
+                                    </span>
+                                }
+                                @if (todo.CompletedAt.HasValue)
+                                {
+                                    <span class="completed-date">Completed: @todo.CompletedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</span>
+                                }
+                            </div>
+                        </div>
+                        <div class="todo-actions">
+                            <button class="edit-btn" @onclick="() => StartEdit(todo)" title="Edit">
+                                ✏️
+                            </button>
+                            <button class="delete-btn" @onclick="() => DeleteTodo(todo.Id)" title="Delete">
+                                🗑️
+                            </button>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="error-toast">
+            <span>@errorMessage</span>
+            <button @onclick="() => errorMessage = null">×</button>
+        </div>
+    }
+</div>
+
