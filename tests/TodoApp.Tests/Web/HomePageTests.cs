@@ -61,6 +61,21 @@ public class HomePageTests : BunitContext
         Assert.NotNull(sent.DueDate);
     }
 
+    [Fact]
+    public void FailedStatisticsRefresh_IsShownAndDoesNotUndoTheChange()
+    {
+        // Regression: this failure used to be swallowed by an empty catch, so the totals
+        // silently went stale.
+        _todos.Seed(Item("Task", Priority.Medium));
+        var page = Render<Home>();
+        _todos.StatisticsFail = true;
+
+        page.Find(".todo-checkbox input").Change(true);
+
+        Assert.Contains("totals could not be refreshed", page.Find(".error-toast").TextContent);
+        Assert.Contains("completed", page.Find(".todo-item").ClassList);
+    }
+
     private static TodoItemModel Item(string title, Priority priority, DateTime? dueDate = null, string? description = null) => new()
     {
         Id = Guid.NewGuid(),
@@ -87,14 +102,19 @@ public class HomePageTests : BunitContext
             .ThenByDescending(t => t.CreatedAt)
             .ToList());
 
-        public Task<TodoItemModel?> GetByIdAsync(Guid id) => Task.FromResult(_items.FirstOrDefault(t => t.Id == id));
+        /// <summary>When set, fetching statistics fails, as it would if the API went away mid-session.</summary>
+        public bool StatisticsFail { get; set; }
 
-        public Task<TodoStatisticsModel> GetStatisticsAsync() => Task.FromResult(new TodoStatisticsModel
-        {
-            TotalCount = _items.Count,
-            CompletedCount = _items.Count(t => t.IsCompleted),
-            PendingCount = _items.Count(t => !t.IsCompleted)
-        });
+        private Task<TodoItemModel?> Find(Guid id) => Task.FromResult(_items.FirstOrDefault(t => t.Id == id));
+
+        public Task<TodoStatisticsModel> GetStatisticsAsync() => StatisticsFail
+            ? Task.FromException<TodoStatisticsModel>(new HttpRequestException("API unreachable"))
+            : Task.FromResult(new TodoStatisticsModel
+            {
+                TotalCount = _items.Count,
+                CompletedCount = _items.Count(t => t.IsCompleted),
+                PendingCount = _items.Count(t => !t.IsCompleted)
+            });
 
         public Task<TodoItemModel?> CreateAsync(CreateTodoModel model)
         {
@@ -106,10 +126,15 @@ public class HomePageTests : BunitContext
         public Task<TodoItemModel?> UpdateAsync(UpdateTodoModel model)
         {
             Updates.Add(model);
-            return GetByIdAsync(model.Id);
+            return Find(model.Id);
         }
 
-        public Task<TodoItemModel?> ToggleCompleteAsync(Guid id) => GetByIdAsync(id);
+        public Task<TodoItemModel?> ToggleCompleteAsync(Guid id)
+        {
+            var item = _items.FirstOrDefault(t => t.Id == id);
+            if (item is not null) item.IsCompleted = !item.IsCompleted;
+            return Task.FromResult(item);
+        }
 
         public Task<bool> DeleteAsync(Guid id) => Task.FromResult(_items.RemoveAll(t => t.Id == id) > 0);
     }

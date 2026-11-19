@@ -172,13 +172,18 @@ public partial class Home
         editDueDateInput = null;
     }
 
+    // The change itself has already succeeded at this point, so a failure here is reported
+    // on its own rather than as a failed update. The previous figures stay on screen.
     private async Task RefreshStatistics()
     {
         try
         {
             statistics = await TodoService.GetStatisticsAsync();
         }
-        catch { /* Ignore stats refresh errors */ }
+        catch (Exception ex)
+        {
+            errorMessage = $"Your change was saved, but the totals could not be refreshed: {ex.Message}";
+        }
     }
 
     private void SetFilter(Filter filter)

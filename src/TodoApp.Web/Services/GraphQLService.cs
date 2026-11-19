@@ -24,22 +24,9 @@ public class GraphQLService : IGraphQLService
         };
     }
 
-    public async Task<T?> ExecuteQueryAsync<T>(string query, object? variables = null)
+    public async Task<T?> ExecuteAsync<T>(string document, object? variables = null)
     {
-        var request = new GraphQLRequest { Query = query, Variables = variables };
-        var response = await SendRequestAsync<T>(request);
-        return response;
-    }
-
-    public async Task<T?> ExecuteMutationAsync<T>(string mutation, object? variables = null)
-    {
-        var request = new GraphQLRequest { Query = mutation, Variables = variables };
-        var response = await SendRequestAsync<T>(request);
-        return response;
-    }
-
-    private async Task<T?> SendRequestAsync<T>(GraphQLRequest request)
-    {
+        var request = new GraphQLRequest { Query = document, Variables = variables };
         var json = JsonSerializer.Serialize(request, _jsonOptions);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
 

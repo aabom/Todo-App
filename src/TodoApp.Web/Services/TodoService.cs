@@ -33,30 +33,8 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteQueryAsync<TodosResponse>(query);
+        var response = await _graphQL.ExecuteAsync<TodosResponse>(query);
         return response?.Todos ?? new List<TodoItemModel>();
-    }
-
-    public async Task<TodoItemModel?> GetByIdAsync(Guid id)
-    {
-        var query = """
-            query($id: UUID!) {
-                todo(id: $id) {
-                    id
-                    title
-                    description
-                    isCompleted
-                    priority
-                    createdAt
-                    completedAt
-                    dueDate
-                    isOverdue
-                }
-            }
-            """;
-
-        var response = await _graphQL.ExecuteQueryAsync<TodoResponse>(query, new { id });
-        return response?.Todo;
     }
 
     public async Task<TodoStatisticsModel> GetStatisticsAsync()
@@ -72,7 +50,7 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteQueryAsync<StatisticsResponse>(query);
+        var response = await _graphQL.ExecuteAsync<StatisticsResponse>(query);
         return response?.Statistics ?? new TodoStatisticsModel();
     }
 
@@ -94,7 +72,7 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteMutationAsync<CreateTodoResponse>(mutation, new
+        var response = await _graphQL.ExecuteAsync<CreateTodoResponse>(mutation, new
         {
             input = new
             {
@@ -126,7 +104,7 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteMutationAsync<ToggleCompleteResponse>(mutation, new { id });
+        var response = await _graphQL.ExecuteAsync<ToggleCompleteResponse>(mutation, new { id });
         return response?.ToggleTodoComplete;
     }
 
@@ -141,7 +119,7 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteMutationAsync<DeleteTodoResponse>(mutation, new { id });
+        var response = await _graphQL.ExecuteAsync<DeleteTodoResponse>(mutation, new { id });
         return response?.DeleteTodo?.Success ?? false;
     }
 
@@ -163,7 +141,7 @@ public class TodoService : ITodoService
             }
             """;
 
-        var response = await _graphQL.ExecuteMutationAsync<UpdateTodoResponse>(mutation, new
+        var response = await _graphQL.ExecuteAsync<UpdateTodoResponse>(mutation, new
         {
             input = new
             {
@@ -182,7 +160,6 @@ public class TodoService : ITodoService
 
 // Response wrapper classes
 public class TodosResponse { public List<TodoItemModel> Todos { get; set; } = new(); }
-public class TodoResponse { public TodoItemModel? Todo { get; set; } }
 public class StatisticsResponse { public TodoStatisticsModel Statistics { get; set; } = new(); }
 public class CreateTodoResponse { public TodoItemModel? CreateTodo { get; set; } }
 public class UpdateTodoResponse { public TodoItemModel? UpdateTodo { get; set; } }
