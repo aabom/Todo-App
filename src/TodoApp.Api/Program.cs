@@ -34,6 +34,13 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
     db.Database.EnsureCreated();
+
+    // Off by default; the Docker setup turns it on so a fresh volume shows sample todos.
+    if (builder.Configuration.GetValue<bool>("Database:SeedDemoData"))
+    {
+        var now = scope.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime;
+        await DemoData.SeedIfEmptyAsync(db, now);
+    }
 }
 
 app.UseCors();

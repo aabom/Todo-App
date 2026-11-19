@@ -65,3 +65,37 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker compose build
+
+      # Start the stack and go through nginx, as a browser would: the page, then a
+      # create and a read over the /graphql proxy against the API on its volume.
+      - name: Smoke test
+        run: |
+          docker compose up -d
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5000/health && break
+            sleep 1
+          done
+          curl -sf http://localhost:8080/ | grep -q '<div id="root">'
+          gql() {
+            curl -sf http://localhost:8080/graphql -H 'Content-Type: application/json' -d "$1"
+          }
+          gql '{"query":"mutation { createTodo(input: { title: \"From CI\" }) { id } }"}'
+          gql '{"query":"{ todos { title } }"}' | grep -q '"From CI"'
+
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop
+        if: always()
+        run: docker compose down -v

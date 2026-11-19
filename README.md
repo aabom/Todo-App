@@ -56,8 +56,32 @@ dotnet run
 
 The API creates `todo.db` on first start. Opening `http://localhost:5000/graphql` in a browser
 loads Nitro, HotChocolate's GraphQL IDE, where the schema can be explored and queried. The React
-client finds the API through `VITE_API_URL` (see `.env.example`). It defaults to
-`http://localhost:5000`.
+client calls `/graphql` on its own origin, and the Vite dev server forwards that to
+`http://localhost:5000` (set `API_URL` to point it elsewhere).
+
+### With Docker
+
+The API and the React client also run as containers. Docker is the only prerequisite:
+
+```bash
+docker compose up --build
+```
+
+The app is then at `http://localhost:8080`, and the API with Nitro at `http://localhost:5000/graphql`.
+The database lives on the `todo-data` volume, so todos survive a restart; a fresh volume opens with
+a few sample todos. `docker compose down -v` deletes the volume and starts over.
+
+- **API:** built with the .NET SDK, run on the *chiseled* ASP.NET image (the runtime and nothing
+  else: no shell, no package manager, non-root user). About 260 MB, most of it the runtime.
+- **React client:** built with Node, served as static files by `nginx-unprivileged` (non-root,
+  about 80 MB). nginx also forwards `/graphql` to the API.
+
+**Why the client proxies instead of calling the API directly.** The address of the API is only
+known where the app is deployed, but a Vite build bakes its settings into the JavaScript. Having
+nginx forward `/graphql` keeps the address out of the build: it is read from `API_UPSTREAM` when
+the container starts, so the same image works anywhere. Browser and API also share one origin,
+so there is no CORS to configure. For a static host that cannot proxy, `VITE_API_URL` can still
+be set at build time (`docker build --build-arg VITE_API_URL=…`) to call an API elsewhere.
 
 ## Running the tests
 
@@ -165,8 +189,9 @@ Because this is a demo with one table and no deployed data to preserve, the sche
 with `EnsureCreated` rather than migrations. A real deployment would switch to migrations.
 
 **CORS lists the clients by origin.** `Cors:AllowedOrigins` in the API's `appsettings.json`
-names the React dev server (`localhost:5173`) and the Blazor client (`localhost:5001`). Nothing
-else may call the API from a browser.
+names the Blazor client (`localhost:5001`). Nothing else may call the API from another origin in
+a browser. The React client needs no entry, because it reaches the API through a proxy on its own
+origin (see [With Docker](#with-docker)).
 
 ### React client
 
@@ -260,4 +285,5 @@ mutation($id: UUID!) {
 | Blazor client | Blazor WebAssembly |
 | Tests | xUnit v3, bUnit, Vitest, React Testing Library |
 | Quality | ESLint (typescript-eslint, strict type-checked), warnings as errors in .NET |
+| Containers | Docker (chiseled .NET runtime, nginx-unprivileged), Docker Compose |
 | CI | GitHub Actions |
