@@ -67,10 +67,11 @@ public partial class Home
             var created = await TodoService.CreateAsync(newTodo);
             if (created != null)
             {
-                todos.Insert(0, created);
                 newTodo = new CreateTodoModel();
                 dueDateInput = null;
-                await RefreshStatistics();
+                // The server owns the sort order (priority, due date, age), so reload
+                // rather than guess where the new item belongs.
+                await LoadData();
             }
         }
         catch (Exception ex)
@@ -143,21 +144,19 @@ public partial class Home
             {
                 Id = editingTodoId.Value,
                 Title = editModel.Title,
-                Description = editModel.Description,
+                // The form shows every field, so an empty one means "remove it".
+                Description = editModel.Description ?? string.Empty,
                 Priority = editModel.Priority,
-                DueDate = editDueDateInput?.ToUniversalTime()
+                DueDate = editDueDateInput?.ToUniversalTime(),
+                ClearDueDate = editDueDateInput is null
             };
 
             var updated = await TodoService.UpdateAsync(updateModel);
             if (updated != null)
             {
-                var index = todos.FindIndex(t => t.Id == editingTodoId.Value);
-                if (index >= 0)
-                {
-                    todos[index] = updated;
-                }
                 editingTodoId = null;
-                await RefreshStatistics();
+                // A new priority or due date can move the item, so reload in server order.
+                await LoadData();
             }
         }
         catch (Exception ex)

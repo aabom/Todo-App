@@ -21,12 +21,18 @@ public record CreateTodoInput(
     DateTime? DueDate = null
 );
 
+/// <summary>
+/// A partial update: a field left null is left unchanged.
+/// To remove a value, send an empty <see cref="Description"/>, or set
+/// <see cref="ClearDueDate"/> (a null <see cref="DueDate"/> alone means "unchanged").
+/// </summary>
 public record UpdateTodoInput(
     Guid Id,
     string? Title = null,
     string? Description = null,
     Priority? Priority = null,
-    DateTime? DueDate = null
+    DateTime? DueDate = null,
+    bool ClearDueDate = false
 );
 
 public record TodoStatisticsDto(

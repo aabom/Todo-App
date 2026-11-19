@@ -18,10 +18,10 @@ public class TodoDbContext : DbContext
             
             entity.Property(t => t.Title)
                 .IsRequired()
-                .HasMaxLength(200);
+                .HasMaxLength(TodoItem.TitleMaxLength);
             
             entity.Property(t => t.Description)
-                .HasMaxLength(1000);
+                .HasMaxLength(TodoItem.DescriptionMaxLength);
             
             entity.Property(t => t.Priority)
                 .HasConversion<int>();
