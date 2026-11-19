@@ -57,21 +57,28 @@ package with a known vulnerability fails the build.
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    subgraph Presentation
+        direction LR
+        Web["<b>TodoApp.Web</b><br/>Blazor WebAssembly"]
+        Api["<b>TodoApp.Api</b><br/>HotChocolate GraphQL"]
+    end
+
+    App["<b>TodoApp.Application</b><br/>TodoService · DTOs"]
+    Dom["<b>TodoApp.Domain</b><br/>TodoItem · ITodoRepository"]
+    Inf["<b>TodoApp.Infrastructure</b><br/>EF Core · SQLite"]
+
+    Web -- "GraphQL over HTTP" --> Api
+    Api --> App
+    App --> Dom
+    Inf -. implements .-> Dom
 ```
-TodoApp.Web (Blazor WASM) ──GraphQL over HTTP──► TodoApp.Api (HotChocolate)
-                                                        │
-                                                        ▼
-                                              TodoApp.Application
-                                           (use cases, DTOs, TodoService)
-                                                        │
-                                                        ▼
-                                                 TodoApp.Domain
-                                     (TodoItem, Priority, ITodoRepository)
-                                                        ▲
-                                                        │ implements
-                                              TodoApp.Infrastructure
-                                         (EF Core, SQLite, TodoRepository)
-```
+
+Arrows point in the direction of dependency. Everything depends inward on the Domain, which
+depends on nothing. Infrastructure implements the Domain's repository interface, so the
+business logic never references EF Core. The Api project wires Infrastructure in through
+dependency injection at startup.
 
 ```
 src/
