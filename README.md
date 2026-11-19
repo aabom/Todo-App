@@ -198,8 +198,10 @@ and the operations. Components stay presentational. One page does not need a glo
 That proves dates are converted between UTC and local time, and the results are the same on a
 developer machine and in CI.
 
-**The same CSS as the Blazor client.** Both clients render the same markup classes from the same
-stylesheet. The difference between them is the code, not the look.
+**The same look as the Blazor client.** `src/index.css` is a copy of the Blazor client's
+`app.css`, and both render the same markup classes, so the difference between them is the code,
+not the look. Each client keeps its own copy so it can be built and deployed on its own. The
+price is that a style change has to be made twice.
 
 ### Blazor client
 
