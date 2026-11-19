@@ -52,7 +52,7 @@ The tests cover every layer:
 | API | The GraphQL schema the server exposes, including error shape | HotChocolate request executor |
 | Web | The Blazor page: ordering after adding, what an edit sends | bUnit |
 
-CI runs the build and the tests on every push and pull request. Warnings are errors, and a
+CI runs the build and the tests on every pull request and every push to `main`. Warnings are errors, and a
 package with a known vulnerability fails the build.
 
 ## Architecture
@@ -115,7 +115,7 @@ rather than guessing where the item belongs. The sort is applied in SQL. Items w
 are sorted last explicitly, because SQLite puts `NULL` first.
 
 **A hand-written GraphQL client.** The front end sends the queries as plain strings through a
-small `GraphQLService` rather than using a generated client. With five operations, the code
+small `GraphQLService` rather than using a generated client. With seven operations, the code
 stays easy to read and has no build-time code generation.
 
 **SQLite and `EnsureCreated`.** The database is a single file, so the app runs with no setup.
