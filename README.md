@@ -135,6 +135,19 @@ for that single enum, so the two cannot drift apart. Nothing else crosses that b
 **CORS is limited to the front end's origin.** It is configured in `Cors:AllowedOrigins` in the
 API's `appsettings.json`.
 
+## Deliberately out of scope
+
+These were left out on purpose, to keep the example focused on the architecture. A production
+version would need them.
+
+- **Authentication and per-user data.** Anyone who can reach the API can read and change every
+  todo. The next step would be ASP.NET Core authentication, with an owner ID on `TodoItem`.
+- **Pagination.** `todos` returns the whole list. HotChocolate's cursor paging (`[UsePaging]`)
+  would be the natural addition once lists grow.
+- **Migrations.** As described above, the schema is created with `EnsureCreated`.
+- **Optimistic concurrency.** If two clients edit the same todo, the last write wins. A row
+  version on `TodoItem` would detect the conflict.
+
 ## Example operations
 
 ```graphql
