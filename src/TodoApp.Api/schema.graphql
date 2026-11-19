@@ -1,0 +1,99 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type DeleteTodoPayload {
+  success: Boolean!
+  deletedId: UUID!
+}
+
+type Mutation {
+  "Create a new todo item"
+  createTodo(input: CreateTodoInput!): TodoItem! @cost(weight: "10")
+  "Update an existing todo item"
+  updateTodo(input: UpdateTodoInput!): TodoItem @cost(weight: "10")
+  "Delete a todo item by ID"
+  deleteTodo(id: UUID!): DeleteTodoPayload! @cost(weight: "10")
+  "Toggle the completion status of a todo item"
+  toggleTodoComplete(id: UUID!): TodoItem @cost(weight: "10")
+}
+
+type Query {
+  "Get all todo items, ordered by priority and due date"
+  todos: [TodoItem!]! @cost(weight: "10")
+  "Get a specific todo item by its ID"
+  todo(id: UUID!): TodoItem @cost(weight: "10")
+  "Get todos filtered by completion status"
+  todosByStatus(isCompleted: Boolean!): [TodoItem!]! @cost(weight: "10")
+  "Get all overdue (past due date and not completed) todos"
+  overdueTodos: [TodoItem!]! @cost(weight: "10")
+  "Get aggregate statistics about todos"
+  statistics: TodoStatistics! @cost(weight: "10")
+}
+
+type TodoItem {
+  "Unique identifier"
+  id: UUID!
+  "Todo item title"
+  title: String!
+  "Optional detailed description"
+  description: String
+  "Whether the item is completed"
+  isCompleted: Boolean!
+  "Priority level"
+  priority: Priority!
+  "Creation timestamp"
+  createdAt: DateTime!
+  "Completion timestamp"
+  completedAt: DateTime
+  "Optional due date"
+  dueDate: DateTime
+  "Whether the item is past its due date"
+  isOverdue: Boolean!
+}
+
+type TodoStatistics {
+  "Total number of todos"
+  totalCount: Int!
+  "Number of completed todos"
+  completedCount: Int!
+  "Number of pending todos"
+  pendingCount: Int!
+  "Number of overdue todos"
+  overdueCount: Int!
+}
+
+input CreateTodoInput {
+  title: String!
+  description: String
+  priority: Priority! = MEDIUM
+  dueDate: DateTime
+}
+
+input UpdateTodoInput {
+  id: UUID!
+  title: String
+  description: String
+  priority: Priority
+  dueDate: DateTime
+  clearDueDate: Boolean! = false
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+"The purpose of the `cost` directive is to define a `weight` for GraphQL types, fields, and arguments. Static analysis can use these weights when calculating the overall cost of a query or response."
+directive @cost("The `weight` argument defines what value to add to the overall cost for every appearance, or possible appearance, of a type, field, argument, etc." weight: String!) on SCALAR | OBJECT | FIELD_DEFINITION | ARGUMENT_DEFINITION | ENUM | INPUT_FIELD_DEFINITION
+
+"The `@specifiedBy` directive is used within the type system definition language to provide a URL for specifying the behavior of custom scalar definitions."
+directive @specifiedBy("The specifiedBy URL points to a human-readable specification. This field will only read a result for scalar types." url: String!) on SCALAR
+
+"The `DateTime` scalar represents an ISO-8601 compliant date time type."
+scalar DateTime @specifiedBy(url: "https:\/\/www.graphql-scalars.com\/date-time")
+
+scalar UUID @specifiedBy(url: "https:\/\/tools.ietf.org\/html\/rfc4122")

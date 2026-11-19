@@ -1,28 +1,23 @@
-// Shapes of the GraphQL schema served by TodoApp.Api. Dates travel as ISO 8601 strings
-// in UTC (with a trailing "Z"); conversion to local time happens only for display.
+// The app's view of the API. What the server sends back is generated from its schema
+// (src/gql, `npm run codegen`). Only the inputs are written by hand, because they carry the
+// partial-update rules below; the generated variable types check them at every call site.
+// Dates travel as ISO 8601 strings in UTC (with a trailing "Z"); conversion to local time
+// happens only for display.
 
-export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const
+import type { GetStatisticsQuery, Priority, TodoFieldsFragment } from '../gql/graphql'
 
-export type Priority = (typeof PRIORITIES)[number]
+export type { Priority }
 
-export interface Todo {
-  id: string
-  title: string
-  description: string | null
-  isCompleted: boolean
-  priority: Priority
-  createdAt: string
-  completedAt: string | null
-  dueDate: string | null
-  isOverdue: boolean
-}
+/** In the order the UI offers them, lowest first. */
+export const PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const satisfies readonly Priority[]
 
-export interface TodoStatistics {
-  totalCount: number
-  completedCount: number
-  pendingCount: number
-  overdueCount: number
-}
+// Fails to compile if the API gains a priority that the list above does not offer.
+type Assert<T extends true> = T
+export type AllPrioritiesListed = Assert<Exclude<Priority, (typeof PRIORITIES)[number]> extends never ? true : false>
+
+export type Todo = TodoFieldsFragment
+
+export type TodoStatistics = GetStatisticsQuery['statistics']
 
 export interface CreateTodoInput {
   title: string

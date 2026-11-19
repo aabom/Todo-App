@@ -54,6 +54,17 @@ jobs:
       - name: Audit
         run: npm audit --audit-level=high
 
+      # The types in src/gql are generated from the API's schema.graphql, which a .NET test
+      # keeps in step with the C# types. Regenerating must change nothing.
+      - name: Generated types are current
+        run: |
+          npm run codegen
+          git status --porcelain -- src/gql
+          test -z "$(git status --porcelain -- src/gql)" || {
+            echo "src/gql is out of date: run 'npm run codegen' and commit the result."
+            exit 1
+          }
+
       - name: Lint
         run: npm run lint
 

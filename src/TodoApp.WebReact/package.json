@@ -13,7 +13,8 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "codegen": "graphql-codegen"
   },
   "dependencies": {
     "react": "19.3.1",
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@graphql-codegen/cli": "8.0.0",
+    "@graphql-codegen/client-preset": "7.0.0",
     "@testing-library/dom": "10.4.1",
     "@testing-library/jest-dom": "8.0.0",
     "@testing-library/react": "16.3.3",
@@ -33,10 +36,16 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "eslint-plugin-react-refresh": "0.5.8",
     "globals": "17.14.0",
+    "graphql": "17.1.0",
     "jsdom": "31.0.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0",
     "vite": "8.3.8",
     "vitest": "5.1.1"
+  },
+  "overrides": {
+    "graphql-config": {
+      "minimatch": "11.0.9"
+    }
   }
 }
