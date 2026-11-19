@@ -92,6 +92,7 @@ cd src/TodoApp.WebReact
 npm test                    # the React client
 npm run lint                # ESLint, type-aware rules
 npm run typecheck           # tsc in strict mode
+npm run codegen             # regenerate src/gql after changing an operation or the schema
 ```
 
 | Area | What is tested | How |
@@ -99,7 +100,7 @@ npm run typecheck           # tsc in strict mode
 | Domain | Title and description rules, completion, overdue logic | xUnit |
 | Infrastructure | Sort order, overdue queries, UTC round-trip of dates, demo seeding | xUnit, real SQLite in memory |
 | Application | Partial updates, clearing fields, statistics against the clock | xUnit, `FakeTimeProvider` + SQLite |
-| API | The GraphQL schema the server exposes, including error shape | HotChocolate request executor |
+| API | The GraphQL schema the server exposes, including error shape; that `schema.graphql` matches it | HotChocolate request executor |
 | Blazor client | Ordering after adding, what an edit sends, error reporting | bUnit |
 | React client | The same behaviour as the Blazor tests, plus time zones and filtering | Vitest + React Testing Library |
 | React GraphQL layer | Data, validation errors, HTTP failures | Vitest with a stubbed `fetch` |
@@ -142,10 +143,11 @@ src/
 ├── TodoApp.Domain/          Entity with its own rules, repository interface. No dependencies.
 ├── TodoApp.Application/     Use cases (TodoService) and DTOs.
 ├── TodoApp.Infrastructure/  EF Core DbContext and repository on SQLite.
-├── TodoApp.Api/             GraphQL queries, mutations, types and error mapping.
+├── TodoApp.Api/             GraphQL queries, mutations, types and error mapping; schema.graphql.
 ├── TodoApp.WebReact/        React + TypeScript client.
 │   └── src/
 │       ├── api/             Typed GraphQL client and the TodoApi operations.
+│       ├── gql/             Types generated from schema.graphql (npm run codegen). Not edited.
 │       ├── hooks/           useTodos: the page's data and operations.
 │       ├── components/      Presentational components.
 │       └── lib/             Pure helpers: dates, filters, building an update.
@@ -198,12 +200,28 @@ origin (see [With Docker](#with-docker)).
 ### React client
 
 **A small typed GraphQL client rather than Apollo or urql.** `createGraphQLClient` is a single
-function: it POSTs one operation, returns `data` typed by the caller and throws on `errors`.
-The app has six operations and no need for a normalised cache, because the server owns the sort
-order and the list is reloaded after a change anyway. A full client would add weight without
-solving a problem this app has. If the schema grew, the next step would be to generate the
-TypeScript types from it with GraphQL Code Generator. Today they are written by hand in
-`api/types.ts` and could drift from the schema.
+function: it POSTs one operation, returns `data` typed by the document it was given and throws on
+`errors`. The app has six operations and no need for a normalised cache, because the server owns
+the sort order and the list is reloaded after a change anyway. A full client would add weight
+without solving a problem this app has.
+
+**The types come from the schema, and a chain of checks keeps them there.** Hand-written types
+for an API drift silently: the server renames a field and the client compiles fine until a
+request fails. Here each link is checked:
+
+1. `src/TodoApp.Api/schema.graphql` is the schema the API serves, as a file. A .NET test
+   (`SchemaFileTests`) fails if the C# types and the file disagree.
+   `UPDATE_SCHEMA=1 dotnet test` rewrites it.
+2. GraphQL Code Generator (`npm run codegen`) validates the operations in `api/todoApi.ts`
+   against that file and generates their result and variable types into `src/gql`. A field the
+   server does not have fails the generation. CI regenerates and fails if anything changes.
+3. `tsc` then checks the app against the generated types. Responses (`Todo`, `TodoStatistics`,
+   `Priority`) are the generated types themselves. The input types stay hand-written, because
+   they carry the partial-update rules, and each call site checks them against the generated
+   variables.
+
+The documents are generated as plain strings (`documentMode: 'string'`), so the client stays a
+`fetch` call with no GraphQL runtime in the bundle.
 
 **Validation errors keep their shape.** `GraphQLRequestError` holds every error the API returned
 and exposes `isValidationError` and `invalidFields`. The `VALIDATION_ERROR` message, such as
@@ -283,7 +301,7 @@ mutation($id: UUID!) {
 | Runtime | .NET 10, Node.js 24 |
 | GraphQL server | HotChocolate 15 |
 | ORM and database | EF Core 10, SQLite |
-| React client | React 19, TypeScript 6 (strict), Vite 8 |
+| React client | React 19, TypeScript 6 (strict), Vite 8, GraphQL Code Generator |
 | Blazor client | Blazor WebAssembly |
 | Tests | xUnit v3, bUnit, Vitest, React Testing Library |
 | Quality | ESLint (typescript-eslint, strict type-checked), warnings as errors in .NET |

@@ -50,23 +50,38 @@ export class HttpRequestError extends Error {
   }
 }
 
-export type GraphQLExecutor = <TData>(document: string, variables?: Record<string, unknown>) => Promise<TData>
+/**
+ * A document that carries the types of its result and variables, as the documents generated
+ * into `src/gql` do. At runtime it is just the query text.
+ */
+export interface TypedDocument<TResult, TVariables> {
+  readonly __apiType?: (variables: TVariables) => TResult
+  toString(): string
+}
+
+export type GraphQLExecutor = <TResult, TVariables>(
+  document: TypedDocument<TResult, TVariables>,
+  variables?: TVariables,
+) => Promise<TResult>
 
 /**
- * A minimal typed GraphQL client: one POST per operation, `data` returned as `TData`,
+ * A minimal typed GraphQL client: one POST per operation, `data` returned typed by the document,
  * `errors` thrown. Queries and mutations travel the same way, so one function serves both.
  */
 export function createGraphQLClient(endpoint: string, fetchImpl: typeof fetch = fetch): GraphQLExecutor {
-  return async <TData>(document: string, variables?: Record<string, unknown>): Promise<TData> => {
+  return async <TResult, TVariables>(
+    document: TypedDocument<TResult, TVariables>,
+    variables?: TVariables,
+  ): Promise<TResult> => {
     const response = await fetchImpl(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ query: document, variables }),
+      body: JSON.stringify({ query: document.toString(), variables }),
     })
 
     // HotChocolate answers GraphQL errors with a 4xx/5xx status but still sends a
     // GraphQL body, so read the body before deciding the request failed.
-    const body = (await response.json().catch(() => null)) as GraphQLResponse<TData> | null
+    const body = (await response.json().catch(() => null)) as GraphQLResponse<TResult> | null
 
     if (body?.errors?.length) {
       throw new GraphQLRequestError(body.errors)

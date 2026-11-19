@@ -10,7 +10,7 @@ describe('createGraphQLClient', () => {
     const fetchMock = respond(200, { data: { todos: [] } })
     const execute = createGraphQLClient('http://api/graphql', fetchMock)
 
-    const data = await execute<{ todos: unknown[] }>('query { todos { id } }', { a: 1 })
+    const data = await execute<{ todos: unknown[] }, { a: number }>('query { todos { id } }', { a: 1 })
 
     expect(data).toEqual({ todos: [] })
     const [url, init] = fetchMock.mock.calls[0] ?? []
