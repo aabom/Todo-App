@@ -2,11 +2,20 @@
 
 [![CI](https://github.com/aabom/Todo-App/actions/workflows/ci.yml/badge.svg)](https://github.com/aabom/Todo-App/actions/workflows/ci.yml)
 
-A todo application built as a small but complete example of **Clean Architecture** in .NET 10.
-A **GraphQL** API (HotChocolate) stores todos in **SQLite** through EF Core. A
-**Blazor WebAssembly** front end talks to that API through a hand-written GraphQL client.
+A todo application built as a small but complete example of **Clean Architecture** in .NET 10,
+with a **headless GraphQL API** and **two independent front ends** on top of it:
 
-![Screenshot of the app](docs/screenshot.png)
+- **TodoApp.Api:** a GraphQL API (HotChocolate) that stores todos in SQLite through EF Core.
+- **TodoApp.WebReact:** a **React 19 + TypeScript** client built with Vite.
+- **TodoApp.Web:** a **Blazor WebAssembly** client written in C#.
+
+Both clients offer the same features and the same UI, and talk to the API only through GraphQL.
+That is the point of the headless setup: the API knows nothing about who is calling it, so a
+client can be added or replaced without touching the backend.
+
+| React client | Blazor client |
+|--------------|---------------|
+| ![The React client](docs/screenshot-react.png) | ![The Blazor client](docs/screenshot.png) |
 
 ## What it does
 
@@ -20,55 +29,77 @@ A **GraphQL** API (HotChocolate) stores todos in **SQLite** through EF Core. A
 
 ## Running it
 
-**Prerequisite:** the [.NET 10 SDK](https://dotnet.microsoft.com/download). The version is
-pinned in `global.json`.
+**Prerequisites:**
+- The [.NET 10 SDK](https://dotnet.microsoft.com/download), pinned in `global.json`.
+- [Node.js 24](https://nodejs.org/) for the React client, pinned in `src/TodoApp.WebReact/.nvmrc`.
+
+Start the API first; either client (or both at once) can then run against it.
 
 ```bash
-# Terminal 1: the API, at http://localhost:5000/graphql
+# The API, at http://localhost:5000/graphql
 cd src/TodoApp.Api
 dotnet run
+```
 
-# Terminal 2: the front end, at http://localhost:5001
+```bash
+# The React client, at http://localhost:5173
+cd src/TodoApp.WebReact
+npm install
+npm run dev
+```
+
+```bash
+# The Blazor client, at http://localhost:5001
 cd src/TodoApp.Web
 dotnet run
 ```
 
 The API creates `todo.db` on first start. Opening `http://localhost:5000/graphql` in a browser
-loads Nitro, HotChocolate's GraphQL IDE, where the schema can be explored and queried.
+loads Nitro, HotChocolate's GraphQL IDE, where the schema can be explored and queried. The React
+client finds the API through `VITE_API_URL` (see `.env.example`). It defaults to
+`http://localhost:5000`.
 
 ## Running the tests
 
 ```bash
-dotnet test
-```
+dotnet test                 # API, domain, persistence and the Blazor client
 
-The tests cover every layer:
+cd src/TodoApp.WebReact
+npm test                    # the React client
+npm run lint                # ESLint, type-aware rules
+npm run typecheck           # tsc in strict mode
+```
 
 | Area | What is tested | How |
 |------|----------------|-----|
-| Domain | Title and description rules, completion, overdue logic | Plain unit tests |
-| Infrastructure | Sort order, overdue queries, UTC round-trip of dates | Real SQLite, in memory |
-| Application | Partial updates, clearing fields, statistics against the clock | `FakeTimeProvider` + SQLite |
+| Domain | Title and description rules, completion, overdue logic | xUnit |
+| Infrastructure | Sort order, overdue queries, UTC round-trip of dates | xUnit, real SQLite in memory |
+| Application | Partial updates, clearing fields, statistics against the clock | xUnit, `FakeTimeProvider` + SQLite |
 | API | The GraphQL schema the server exposes, including error shape | HotChocolate request executor |
-| Web | The Blazor page: ordering after adding, what an edit sends | bUnit |
+| Blazor client | Ordering after adding, what an edit sends, error reporting | bUnit |
+| React client | The same behaviour as the Blazor tests, plus time zones and filtering | Vitest + React Testing Library |
+| React GraphQL layer | Data, validation errors, HTTP failures | Vitest with a stubbed `fetch` |
 
-CI runs the build and the tests on every pull request and every push to `main`. Warnings are errors, and a
-package with a known vulnerability fails the build.
+CI runs two jobs on every pull request and every push to `main`:
+- **.NET:** builds with warnings as errors, and fails on a package with a known vulnerability.
+- **React:** runs `npm audit`, ESLint, `tsc`, Vitest and the production build.
 
 ## Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Presentation
+    subgraph Clients
         direction LR
+        React["<b>TodoApp.WebReact</b><br/>React · TypeScript"]
         Web["<b>TodoApp.Web</b><br/>Blazor WebAssembly"]
-        Api["<b>TodoApp.Api</b><br/>HotChocolate GraphQL"]
     end
 
+    Api["<b>TodoApp.Api</b><br/>HotChocolate GraphQL"]
     App["<b>TodoApp.Application</b><br/>TodoService · DTOs"]
     Dom["<b>TodoApp.Domain</b><br/>TodoItem · ITodoRepository"]
     Inf["<b>TodoApp.Infrastructure</b><br/>EF Core · SQLite"]
 
+    React -- "GraphQL over HTTP" --> Api
     Web -- "GraphQL over HTTP" --> Api
     Api --> App
     App --> Dom
@@ -86,12 +117,20 @@ src/
 ├── TodoApp.Application/     Use cases (TodoService) and DTOs.
 ├── TodoApp.Infrastructure/  EF Core DbContext and repository on SQLite.
 ├── TodoApp.Api/             GraphQL queries, mutations, types and error mapping.
-└── TodoApp.Web/             Blazor WebAssembly UI and a small GraphQL client.
+├── TodoApp.WebReact/        React + TypeScript client.
+│   └── src/
+│       ├── api/             Typed GraphQL client and the TodoApi operations.
+│       ├── hooks/           useTodos: the page's data and operations.
+│       ├── components/      Presentational components.
+│       └── lib/             Pure helpers: dates, filters, building an update.
+└── TodoApp.Web/             Blazor WebAssembly client and its GraphQL client.
 tests/
-└── TodoApp.Tests/           One test project, one folder per layer.
+└── TodoApp.Tests/           .NET tests, one folder per layer. React tests sit next to their code.
 ```
 
 ## Design decisions
+
+### API and domain
 
 **A rich domain model.** `TodoItem` has private setters, and every change goes through a method.
 The rules therefore live in one place and cannot be bypassed: a title is required and trimmed,
@@ -112,28 +151,63 @@ the same once they reach C#. Sending both a due date and `clearDueDate` is rejec
 `TimeProvider` and passes it in, so overdue logic is deterministic and the tests control the
 clock.
 
-**All times are UTC.** The client converts its local input to UTC before sending it. SQLite
-stores no time zone, so value converters in `TodoDbContext` mark dates as UTC when they are
-read back. The UTC marker is what makes GraphQL serialize them with a `Z` suffix, which in turn
-lets the browser show them in local time.
+**All times are UTC.** The clients convert local input to UTC before sending it and convert back
+only for display. SQLite stores no time zone, so value converters in `TodoDbContext` mark dates
+as UTC when they are read back. The UTC marker is what makes GraphQL serialize them with a `Z`
+suffix.
 
-**The server owns the sort order.** After adding or editing a todo, the page reloads the list
+**The server owns the sort order.** After adding or editing a todo, both clients reload the list
 rather than guessing where the item belongs. The sort is applied in SQL. Items without a due date
 are sorted last explicitly, because SQLite puts `NULL` first.
-
-**A hand-written GraphQL client.** The front end sends the queries as plain strings through a
-small `GraphQLService` rather than using a generated client. With seven operations, the code
-stays easy to read and has no build-time code generation.
 
 **SQLite and `EnsureCreated`.** The database is a single file, so the app runs with no setup.
 Because this is a demo with one table and no deployed data to preserve, the schema is created
 with `EnsureCreated` rather than migrations. A real deployment would switch to migrations.
 
-**The UI reuses the domain's `Priority` enum.** The Web project references the Domain project
-for that single enum, so the two cannot drift apart. Nothing else crosses that boundary.
+**CORS lists the clients by origin.** `Cors:AllowedOrigins` in the API's `appsettings.json`
+names the React dev server (`localhost:5173`) and the Blazor client (`localhost:5001`). Nothing
+else may call the API from a browser.
 
-**CORS is limited to the front end's origin.** It is configured in `Cors:AllowedOrigins` in the
-API's `appsettings.json`.
+### React client
+
+**A small typed GraphQL client rather than Apollo or urql.** `createGraphQLClient` is a single
+function: it POSTs one operation, returns `data` typed by the caller and throws on `errors`.
+The app has six operations and no need for a normalised cache, because the server owns the sort
+order and the list is reloaded after a change anyway. A full client would add weight without
+solving a problem this app has. If the schema grew, the next step would be to generate the
+TypeScript types from it with GraphQL Code Generator. Today they are written by hand in
+`api/types.ts` and could drift from the schema.
+
+**Validation errors keep their shape.** `GraphQLRequestError` holds every error the API returned
+and exposes `isValidationError` and `invalidFields`. The `VALIDATION_ERROR` message, such as
+"Title cannot be empty.", is what the user sees.
+
+**One seam for tests.** Components never call `fetch`. They get a `TodoApi` interface through
+`App`'s props. In the app that is the GraphQL implementation; in tests it is `FakeTodoApi`,
+which sorts like the server and records what the UI sends. Tests therefore assert on the input
+the API would receive, such as `clearDueDate: true`, rather than on implementation details.
+
+**State lives in one hook.** `useTodos` holds the list, the statistics, loading and error state,
+and the operations. Components stay presentational. One page does not need a global store.
+
+**TypeScript as strict as it goes.** On top of `strict`, the project uses
+`noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. ESLint runs typescript-eslint's
+`strictTypeChecked` rules and the React Hooks rules. CI fails on any warning.
+
+**Tests run in a fixed time zone.** Vitest runs in `Europe/Stockholm`, which is offset from UTC.
+That proves dates are converted between UTC and local time, and the results are the same on a
+developer machine and in CI.
+
+**The same CSS as the Blazor client.** Both clients render the same markup classes from the same
+stylesheet. The difference between them is the code, not the look.
+
+### Blazor client
+
+**A hand-written GraphQL client here too.** `GraphQLService` sends the queries as plain strings
+and deserialises `data`. It follows the same reasoning as the React client.
+
+**It reuses the domain's `Priority` enum.** The Blazor project references the Domain project for
+that single enum, so the two cannot drift apart. Nothing else crosses that boundary.
 
 ## Deliberately out of scope
 
@@ -177,9 +251,11 @@ mutation($id: UUID!) {
 
 | Component | Technology |
 |-----------|------------|
-| Runtime | .NET 10 |
+| Runtime | .NET 10, Node.js 24 |
 | GraphQL server | HotChocolate 15 |
 | ORM and database | EF Core 10, SQLite |
-| Front end | Blazor WebAssembly |
-| Tests | xUnit v3, bUnit, Microsoft.Extensions.TimeProvider.Testing |
+| React client | React 19, TypeScript 6 (strict), Vite 8 |
+| Blazor client | Blazor WebAssembly |
+| Tests | xUnit v3, bUnit, Vitest, React Testing Library |
+| Quality | ESLint (typescript-eslint, strict type-checked), warnings as errors in .NET |
 | CI | GitHub Actions |
