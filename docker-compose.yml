@@ -1,0 +1,30 @@
+# docker compose up --build
+#   The app:  http://localhost:8080
+#   The API:  http://localhost:5000/graphql (Nitro, the GraphQL IDE)
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/TodoApp.Api/Dockerfile
+    environment:
+      # A fresh volume opens with a few sample todos instead of an empty page.
+      Database__SeedDemoData: "true"
+    ports:
+      - "5000:8080"
+    volumes:
+      - todo-data:/data
+    restart: unless-stopped
+
+  web:
+    build: src/TodoApp.WebReact
+    environment:
+      API_UPSTREAM: http://api:8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  todo-data:

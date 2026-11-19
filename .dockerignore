@@ -1,0 +1,17 @@
+# Keep the build context small and free of local state.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.git/
+.github/
+.vs/
+.vscode/
+.idea/
+.claude/
+docs/
+tests/
+src/TodoApp.Web/
