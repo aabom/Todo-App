@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Known-vulnerable packages fail CI. Locally they stay warnings so they
+      # never block a build, but they cannot reach main unnoticed.
+      - name: Restore
+        run: dotnet restore -p:WarningsNotAsErrors=
+
+      - name: Build
+        run: dotnet build --no-restore -p:WarningsNotAsErrors=
+
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
