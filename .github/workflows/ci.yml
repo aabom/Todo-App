@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build-and-test:
+    name: .NET (API, Blazor)
     runs-on: ubuntu-latest
 
     steps:
@@ -29,3 +30,38 @@ jobs:
 
       - name: Test
         run: dotnet test --no-build --verbosity normal
+
+  react:
+    name: React client
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/TodoApp.WebReact
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: src/TodoApp.WebReact/.nvmrc
+          cache: npm
+          cache-dependency-path: src/TodoApp.WebReact/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      # Fails on a known high or critical advisory, like the .NET job does.
+      - name: Audit
+        run: npm audit --audit-level=high
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
