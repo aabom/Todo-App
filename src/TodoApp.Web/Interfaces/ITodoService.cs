@@ -8,7 +8,6 @@ namespace TodoApp.Web.Interfaces;
 public interface ITodoService
 {
     Task<List<TodoItemModel>> GetAllAsync();
-    Task<TodoItemModel?> GetByIdAsync(Guid id);
     Task<TodoStatisticsModel> GetStatisticsAsync();
     Task<TodoItemModel?> CreateAsync(CreateTodoModel model);
     Task<TodoItemModel?> ToggleCompleteAsync(Guid id);
