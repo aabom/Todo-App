@@ -15,3 +15,4 @@
 docs/
 tests/
 src/TodoApp.Web/
+e2e/
