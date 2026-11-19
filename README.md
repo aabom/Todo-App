@@ -92,6 +92,12 @@ cd src/TodoApp.WebReact
 npm test                    # the React client
 npm run lint                # ESLint, type-aware rules
 npm run typecheck           # tsc in strict mode
+
+# End-to-end, against the app in Docker (docker compose up --build first)
+cd e2e
+npm ci
+npx playwright install chromium
+npm test
 ```
 
 | Area | What is tested | How |
@@ -103,12 +109,20 @@ npm run typecheck           # tsc in strict mode
 | Blazor client | Ordering after adding, what an edit sends, error reporting | bUnit |
 | React client | The same behaviour as the Blazor tests, plus time zones and filtering | Vitest + React Testing Library |
 | React GraphQL layer | Data, validation errors, HTTP failures | Vitest with a stubbed `fetch` |
+| End to end | Create, complete, filter, edit, delete; server sort order; due dates across time zones; API validation errors in the UI | Playwright in Chromium, against the Docker containers |
+
+The unit and component tests each stop at a boundary: the React tests use a fake API, and the API
+tests never see a browser. The end-to-end tests cover what lies between: the built client, nginx,
+the `/graphql` proxy, the API and SQLite, the same containers that `docker compose up` starts.
+They share one seeded database, so each test creates its own todos with unique titles and never
+asserts on totals. The browser runs in `Europe/Stockholm`, so a due date entered as 09:00 local
+has to survive the trip to UTC and back.
 
 CI runs three jobs on every pull request and every push to `main`:
 - **.NET:** builds with warnings as errors, and fails on a package with a known vulnerability.
 - **React:** runs `npm audit`, ESLint, `tsc`, Vitest and the production build.
-- **Docker:** builds both images, starts them with Compose and creates and reads a todo through
-  the nginx proxy.
+- **Docker + end-to-end:** builds both images, starts them with Compose and runs the Playwright
+  tests against them. On failure the trace and report are uploaded.
 
 ## Architecture
 
@@ -152,6 +166,7 @@ src/
 └── TodoApp.Web/             Blazor WebAssembly client and its GraphQL client.
 tests/
 └── TodoApp.Tests/           .NET tests, one folder per layer. React tests sit next to their code.
+e2e/                         Playwright tests against the running containers.
 ```
 
 ## Design decisions
@@ -285,7 +300,7 @@ mutation($id: UUID!) {
 | ORM and database | EF Core 10, SQLite |
 | React client | React 19, TypeScript 6 (strict), Vite 8 |
 | Blazor client | Blazor WebAssembly |
-| Tests | xUnit v3, bUnit, Vitest, React Testing Library |
+| Tests | xUnit v3, bUnit, Vitest, React Testing Library, Playwright |
 | Quality | ESLint (typescript-eslint, strict type-checked), warnings as errors in .NET |
 | Containers | Docker (chiseled .NET runtime, nginx-unprivileged), Docker Compose |
 | CI | GitHub Actions |
