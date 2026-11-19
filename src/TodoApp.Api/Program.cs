@@ -1,7 +1,4 @@
-using Microsoft.EntityFrameworkCore;
-using TodoApp.Api.GraphQL.Mutations;
-using TodoApp.Api.GraphQL.Queries;
-using TodoApp.Api.GraphQL.Types;
+using TodoApp.Api.GraphQL;
 using TodoApp.Application;
 using TodoApp.Infrastructure;
 using TodoApp.Infrastructure.Persistence;
@@ -9,28 +6,22 @@ using TodoApp.Infrastructure.Persistence;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services using Clean Architecture DI extensions
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Data Source=todo.db";
 
 builder.Services
     .AddApplication()
     .AddInfrastructure(connectionString);
 
-// Configure GraphQL with HotChocolate
-builder.Services
-    .AddGraphQLServer()
-    .AddQueryType<Query>()
-    .AddMutationType<Mutation>()
-    .AddType<TodoItemType>()
-    .AddType<TodoStatisticsType>()
-    .ModifyRequestOptions(opt => opt.IncludeExceptionDetails = builder.Environment.IsDevelopment());
+builder.Services.AddTodoGraphQL(includeExceptionDetails: builder.Environment.IsDevelopment());
 
-// Configure CORS for Blazor WebAssembly
+// CORS for the Blazor WebAssembly client. Only the origins listed in configuration may call the API.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -38,7 +29,7 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Ensure database is created and migrated
+// Create the SQLite database on first run (see README: why EnsureCreated rather than migrations)
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TodoDbContext>();
@@ -47,10 +38,8 @@ using (var scope = app.Services.CreateScope())
 
 app.UseCors();
 
-// Map GraphQL endpoint
 app.MapGraphQL();
 
-// Add a simple health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
 
 app.Run();

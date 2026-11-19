@@ -9,4 +9,5 @@ public class UpdateTodoModel
     public string? Description { get; set; }
     public Priority? Priority { get; set; }
     public DateTime? DueDate { get; set; }
+    public bool ClearDueDate { get; set; }
 }
