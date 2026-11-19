@@ -171,7 +171,8 @@ public class TodoService : ITodoService
                 title = model.Title,
                 description = model.Description,
                 priority = model.Priority?.ToString().ToUpperInvariant(),
-                dueDate = model.DueDate
+                dueDate = model.DueDate,
+                clearDueDate = model.ClearDueDate
             }
         });
 
