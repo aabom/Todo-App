@@ -97,16 +97,18 @@ npm run typecheck           # tsc in strict mode
 | Area | What is tested | How |
 |------|----------------|-----|
 | Domain | Title and description rules, completion, overdue logic | xUnit |
-| Infrastructure | Sort order, overdue queries, UTC round-trip of dates | xUnit, real SQLite in memory |
+| Infrastructure | Sort order, overdue queries, UTC round-trip of dates, demo seeding | xUnit, real SQLite in memory |
 | Application | Partial updates, clearing fields, statistics against the clock | xUnit, `FakeTimeProvider` + SQLite |
 | API | The GraphQL schema the server exposes, including error shape | HotChocolate request executor |
 | Blazor client | Ordering after adding, what an edit sends, error reporting | bUnit |
 | React client | The same behaviour as the Blazor tests, plus time zones and filtering | Vitest + React Testing Library |
 | React GraphQL layer | Data, validation errors, HTTP failures | Vitest with a stubbed `fetch` |
 
-CI runs two jobs on every pull request and every push to `main`:
+CI runs three jobs on every pull request and every push to `main`:
 - **.NET:** builds with warnings as errors, and fails on a package with a known vulnerability.
 - **React:** runs `npm audit`, ESLint, `tsc`, Vitest and the production build.
+- **Docker:** builds both images, starts them with Compose and creates and reads a todo through
+  the nginx proxy.
 
 ## Architecture
 
