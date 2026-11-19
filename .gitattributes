@@ -1,2 +1,8 @@
+# Written by tools rather than by hand, always with LF line endings. Checking them out
+# as LF too keeps a regeneration on Windows from showing every line as changed.
+
 # Generated from schema.graphql by `npm run codegen`; collapsed in GitHub diffs.
-src/TodoApp.WebReact/src/gql/** linguist-generated=true
+src/TodoApp.WebReact/src/gql/** linguist-generated=true eol=lf
+
+# Written by SchemaFileTests when run with UPDATE_SCHEMA=1.
+src/TodoApp.Api/schema.graphql eol=lf
